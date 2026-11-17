@@ -1,0 +1,27 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node (dashboard build tooling, if the Angular version is resumed)
+node_modules/
+dist/
+.angular/
+
+# Runtime output of the lab: databases, spool, pids, logs, simulator state
+data/
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,6 @@
+# Python side of the lab: the two simulators and the verification tools.
+# Versions are the ones the measured results in README.md were produced with.
+#   python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+asyncua==2.1.0      # OPC-UA server standing in for the line controllers
+paho-mqtt==2.2.0    # MQTT client standing in for the end-of-line benches
+nats-py==2.16.0     # tools/verify.py feeds synthetic events straight to the stream

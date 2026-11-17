@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LinePulse</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --text: #1b2330; --muted: #5d6879; --border: #dde1e8;
+    --run: #1a9e5b; --down: #d64545; --warn: #d98e04; --info: #2f6fd6; --idle: #8a93a2;
+    --micro: #d98e04; --bar: #cfd5df; --accent: #2f6fd6; --shadow: 0 1px 2px rgba(20,30,50,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #11151c; --panel: #1a202b; --text: #e6eaf1; --muted: #98a2b3; --border: #2a3342;
+      --run: #35c27b; --down: #ef6b6b; --warn: #f0b13a; --info: #6aa0ff; --idle: #7d8696;
+      --micro: #f0b13a; --bar: #34405a; --accent: #6aa0ff; --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #11151c; --panel: #1a202b; --text: #e6eaf1; --muted: #98a2b3; --border: #2a3342;
+    --run: #35c27b; --down: #ef6b6b; --warn: #f0b13a; --info: #6aa0ff; --idle: #7d8696;
+    --micro: #f0b13a; --bar: #34405a; --accent: #6aa0ff; --shadow: none;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  header h1 { margin: 0; font-size: 18px; letter-spacing: .2px; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  header .spacer { flex: 1; }
+  .conn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--idle); display: inline-block; }
+  .dot.live { background: var(--run); } .dot.bad { background: var(--down); }
+  main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 60px; }
+  section { margin-top: 26px; }
+  h2 { margin: 0 0 4px; font-size: 16px; }
+  .lede { margin: 0 0 12px; color: var(--muted); max-width: 90ch; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow); }
+  .card.faulted { border-color: var(--down); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .site { font-size: 11px; font-weight: 600; letter-spacing: .6px; color: var(--muted); }
+  .lineid { font-size: 20px; font-weight: 650; }
+  .badge { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; color: #fff; background: var(--idle); }
+  .badge.Running { background: var(--run); } .badge.Faulted { background: var(--down); }
+  .badge.Blocked { background: var(--warn); } .badge.Changeover { background: var(--info); }
+  .alarm { color: var(--down); font-size: 12.5px; min-height: 18px; margin-top: 4px; }
+  .oee { display: flex; align-items: baseline; gap: 8px; margin: 8px 0 4px; }
+  .oee .n { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .oee .l { color: var(--muted); font-size: 12px; }
+  .factor { display: grid; grid-template-columns: 78px 1fr 44px; align-items: center; gap: 8px; font-size: 12px; margin: 3px 0; }
+  .track { height: 7px; border-radius: 4px; background: var(--bar); overflow: hidden; }
+  .fill { height: 100%; border-radius: 4px; background: var(--accent); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .stale { color: var(--down); }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; background: color-mix(in srgb, var(--panel) 92%, var(--text) 8%); }
+  tr:last-child td { border-bottom: 0; }
+  td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; }
+  .tablewrap { overflow-x: auto; }
+  .chip { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; color: #fff; background: var(--idle); white-space: nowrap; }
+  .chip.ok { background: var(--run); } .chip.warning { background: var(--warn); } .chip.alarm { background: var(--down); }
+  tr.hot td { background: color-mix(in srgb, var(--warn) 14%, var(--panel) 86%); }
+  tr.hot.alarmrow td { background: color-mix(in srgb, var(--down) 14%, var(--panel) 86%); }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; align-items: center; }
+  select, input, button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; }
+  button { cursor: pointer; } button:hover { border-color: var(--accent); }
+  input { min-width: 260px; }
+  .pareto { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .callout { font-size: 13.5px; margin: 0 0 10px; }
+  .callout b { color: var(--micro); }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 8px; flex-wrap: wrap; }
+  .sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .two { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+  .kv { display: grid; grid-template-columns: 150px 1fr; gap: 3px 12px; font-size: 13px; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .empty { color: var(--muted); padding: 18px; text-align: center; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  svg text { fill: var(--text); font: 12px -apple-system, "Segoe UI", Roboto, sans-serif; }
+  svg text.m { fill: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>LinePulse</h1>
+  <span class="sub">Production lines, quality and traceability &middot; simulated plant (Izmir and Nis)</span>
+  <span class="spacer"></span>
+  <span class="conn"><span id="dot" class="dot"></span><span id="conn">connecting&hellip;</span></span>
+  <button id="theme" title="Toggle light / dark">Theme</button>
+</header>
+
+<main>
+  <section>
+    <h2>Right now</h2>
+    <p class="lede">OEE for the current shift at each site, split into the three things that can cost you output:
+      availability (was it running), performance (how fast) and quality (how many good parts).</p>
+    <div id="cards" class="grid"><div class="empty">Waiting for the core service&hellip;</div></div>
+  </section>
+
+  <section>
+    <h2>Where did the time go?</h2>
+    <p class="lede">Downtime for the current shift, by reason. Stops under two minutes are the losses a shift sheet never
+      records, because nobody writes down a 40-second jam. Here they are counted separately.</p>
+    <div class="controls">
+      <label for="plines">Line</label>
+      <select id="plines"></select>
+    </div>
+    <div class="pareto"><p class="callout" id="paretoCallout"></p><div id="pareto"></div>
+      <div class="legend"><span><i class="sw" style="background:var(--down)"></i>unplanned downtime</span>
+        <span><i class="sw" style="background:var(--idle)"></i>planned (changeover, maintenance)</span>
+        <span><i class="sw" style="background:var(--micro)"></i>chip: stops under 2 minutes</span></div></div>
+  </section>
+
+  <section>
+    <h2>Leak-test fixtures: early warning</h2>
+    <p class="lede">Each fixture is compared with its own recent history and with the other fixtures testing the same pumps.
+      A seal that is going off reads high on one fixture long before any part fails, so the warning arrives while every part
+      still passes. Limit crossings are a late signal; drift is the early one.</p>
+    <div class="tablewrap"><table id="fixtures"></table></div>
+  </section>
+
+  <section>
+    <h2>Izmir and Nis, same shift</h2>
+    <p class="lede">Both plants run the same product family, so their numbers are directly comparable. Shift windows
+      follow each site's own time zone.</p>
+    <div id="sites" class="two"></div>
+  </section>
+
+  <section>
+    <h2>Part genealogy</h2>
+    <p class="lede">Enter a serial number to see what the part measured at the end of the line, which housing lot it was
+      built from, and which machining tool made that lot &mdash; the questions a warranty claim asks, years later.</p>
+    <div class="controls"><input id="serial" placeholder="e.g. IZM-L01-2646-000001" autocomplete="off">
+      <button id="lookup">Look up</button><span id="examples"></span></div>
+    <div id="part"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const LINES = [["IZM", "L01"], ["IZM", "L02"], ["IZM", "MC01"], ["NIS", "L11"]];
+const pct = (v) => (v * 100).toFixed(1) + "%";
+const sci = (v) => (v === null || v === undefined ? "-" : Number(v).toExponential(2));
+const fixed = (v, d) => (v === null || v === undefined ? "-" : Number(v).toFixed(d));
+
+function el(tag, attrs, ...kids) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") node.className = v; else if (k === "style") node.style.cssText = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v); else node.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid !== null && kid !== undefined) node.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  return node;
+}
+async function getJson(path) {
+  const res = await fetch(path, { cache: "no-store" });
+  if (!res.ok) throw new Error(path + " -> HTTP " + res.status);
+  return res.json();
+}
+function ago(iso) {
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  return s < 90 ? Math.round(s) + " s ago" : Math.round(s / 60) + " min ago";
+}
+
+/* ------------------------------------------------------------------ cards */
+let lastLines = [];
+function factor(label, value) {
+  return el("div", { class: "factor" }, el("span", {}, label),
+    el("div", { class: "track" }, el("div", { class: "fill", style: "width:" + Math.max(0, Math.min(1, value)) * 100 + "%" })),
+    el("span", { class: "num" }, pct(value)));
+}
+function renderCards(lines) {
+  lastLines = lines;
+  const host = $("cards");
+  host.replaceChildren(...lines.map((l) => {
+    const stale = (Date.now() - new Date(l.lastSeenUtc).getTime()) > 30000;
+    return el("div", { class: "card" + (l.state === "Faulted" ? " faulted" : "") },
+      el("div", { class: "row" }, el("div", {}, el("div", { class: "site" }, l.site), el("div", { class: "lineid" }, l.line)),
+        el("span", { class: "badge " + l.state }, l.state)),
+      el("div", { class: "alarm" }, l.alarmText || ""),
+      el("div", { class: "oee" }, el("span", { class: "n" }, pct(l.oee.oee)), el("span", { class: "l" }, "OEE, shift " + l.shift)),
+      factor("Availability", l.oee.availability), factor("Performance", l.oee.performance), factor("Quality", l.oee.quality),
+      el("div", { class: "meta" }, el("span", {}, l.programId + " · " + l.goodShift + " good / " + l.scrapShift + " scrap"),
+        el("span", { class: stale ? "stale" : "" }, ago(l.lastSeenUtc))));
+  }));
+  if (!lines.length) host.append(el("div", { class: "empty" }, "No lines reporting yet."));
+}
+
+/* ----------------------------------------------------------------- pareto */
+async function loadPareto() {
+  // Falls back to every line when nothing is selected yet: a chart of all lines is the
+  // useful answer, and without this the empty value builds a request for no line at all and
+  // the panel quietly claims there is nothing to show.
+  const sel = $("plines").value || "ALL";
+  const targets = sel === "ALL" ? LINES : [sel.split("/")];
+  const parts = await Promise.all(targets.map(([s, l]) => getJson(`/api/lines/${s}/${l}/downtime`).catch(() => [])));
+  const merged = new Map();
+  for (const row of parts.flat()) {
+    const m = merged.get(row.reasonCode) || { ...row, stops: 0, microStops: 0, totalSeconds: 0, openStops: 0 };
+    if (merged.has(row.reasonCode)) { m.stops += row.stops; m.microStops += row.microStops; m.totalSeconds += row.totalSeconds; m.openStops += row.openStops; }
+    merged.set(row.reasonCode, m);
+  }
+  const rows = [...merged.values()].sort((a, b) => b.totalSeconds - a.totalSeconds).slice(0, 9);
+  renderPareto(rows);
+}
+function renderPareto(rows) {
+  const host = $("pareto");
+  const stops = rows.reduce((n, r) => n + r.stops, 0), micro = rows.reduce((n, r) => n + r.microStops, 0);
+  $("paretoCallout").replaceChildren(stops === 0 ? "No stops recorded this shift yet." : el("span", {},
+    el("b", {}, micro + " of " + stops + " stops"), " were under two minutes (" + Math.round(100 * micro / stops) + "%). ",
+    "None of them would appear on a shift sheet."));
+  if (!rows.length) { host.replaceChildren(el("div", { class: "empty" }, "Nothing to show yet.")); return; }
+  const W = 1000, labelW = 330, rowH = 30, max = Math.max(...rows.map((r) => r.totalSeconds), 1);
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${rows.length * rowH + 6}`); svg.setAttribute("width", "100%");
+  const add = (tag, attrs, text) => { const n = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (text !== undefined) n.textContent = text; svg.append(n); return n; };
+  rows.forEach((r, i) => {
+    const y = i * rowH + 4, w = Math.max(2, (W - labelW - 170) * r.totalSeconds / max);
+    add("text", { x: 0, y: y + 17 }, `${r.reasonCode}  ${r.reasonText}`.slice(0, 52));
+    add("rect", { x: labelW, y: y + 3, width: w, height: 18, rx: 3, fill: r.planned ? "var(--idle)" : "var(--down)" });
+    add("text", { x: labelW + w + 8, y: y + 17, class: "m" }, `${Math.round(r.totalSeconds)} s · ${r.stops} stop${r.stops === 1 ? "" : "s"}`);
+    if (r.microStops > 0) {
+      const cx = W - 80;
+      add("rect", { x: cx, y: y + 3, width: 78, height: 18, rx: 9, fill: "var(--micro)" });
+      add("text", { x: cx + 39, y: y + 16, "text-anchor": "middle", style: "fill:#fff;font-weight:600" }, `${r.microStops} micro`);
+    }
+  });
+  host.replaceChildren(svg);
+}
+
+/* --------------------------------------------------------------- fixtures */
+async function loadFixtures() {
+  const rows = await getJson("/api/quality/fixtures");
+  const rank = { alarm: 0, warning: 1 };
+  rows.sort((a, b) => (rank[a.status] ?? 2) - (rank[b.status] ?? 2) || (a.site + a.line + a.fixtureId).localeCompare(b.site + b.line + b.fixtureId));
+  const head = el("tr", {}, ...["Line", "Fixture", "Tests", "Mean leak rate", "Share of limit", "Trend / part", "Cpk", "Parts to limit", "Status"]
+    .map((h, i) => el("th", { class: i >= 2 && i <= 7 ? "r" : "" }, h)));
+  const body = rows.map((r) => el("tr", { class: r.status === "alarm" ? "hot alarmrow" : r.status === "warning" ? "hot" : "" },
+    el("td", {}, `${r.site}/${r.line}`), el("td", {}, r.fixtureId), el("td", { class: "r" }, r.n),
+    el("td", { class: "r" }, sci(r.mean)), el("td", { class: "r" }, pct(r.mean / r.limit)),
+    el("td", { class: "r" }, sci(r.slope)), el("td", { class: "r" }, fixed(r.cpkUpper, 2)),
+    el("td", { class: "r" }, r.partsToLimit ?? "-"),
+    el("td", {}, el("span", { class: "chip " + r.status, title: r.note || "" }, r.status))));
+  $("fixtures").replaceChildren(head, ...body);
+  if (!rows.length) $("fixtures").replaceChildren(el("tr", {}, el("td", { class: "empty" }, "No test records yet.")));
+}
+
+/* ------------------------------------------------------------------ sites */
+function localWindow(fromIso, toIso, offset) {
+  const f = (iso) => { const d = new Date(new Date(iso).getTime() + offset * 3600000); return String(d.getUTCHours()).padStart(2, "0") + ":00"; };
+  return `${f(fromIso)}–${f(toIso)} local (UTC${offset >= 0 ? "+" : ""}${offset})`;
+}
+async function loadSites() {
+  const rows = await getJson("/api/sites/rollup");
+  $("sites").replaceChildren(...rows.map((s) => el("div", { class: "card" },
+    el("div", { class: "row" }, el("div", {}, el("div", { class: "site" }, s.site), el("div", { class: "lineid" }, "Shift " + s.shift)),
+      el("span", { class: "oee" }, el("span", { class: "n" }, pct(s.oee.oee)))),
+    el("div", { class: "note", style: "margin:0 0 8px" }, localWindow(s.fromUtc, s.toUtc, s.utcOffsetHours)),
+    factor("Availability", s.oee.availability), factor("Performance", s.oee.performance), factor("Quality", s.oee.quality),
+    el("dl", { class: "kv", style: "margin-top:10px" },
+      el("dt", {}, "First-pass yield"), el("dd", {}, pct(s.fpy) + `  (${s.passedFirstTime}/${s.tested})`),
+      el("dt", {}, "Parts good / scrap"), el("dd", {}, `${s.good} / ${s.scrap}`),
+      el("dt", {}, "Stops (micro)"), el("dd", {}, `${s.stops} (${s.microStops})`),
+      el("dt", {}, "Lines reporting"), el("dd", {}, s.lines)),
+    s.products && s.products.length ? el("table", { style: "margin-top:10px" },
+      el("tr", {}, el("th", {}, "Product"), el("th", { class: "r" }, "Good"), el("th", { class: "r" }, "OEE")),
+      ...s.products.map((p) => el("tr", {}, el("td", {}, p.programId), el("td", { class: "r" }, p.good), el("td", { class: "r" }, pct(p.oee.oee))))) : null)));
+}
+
+/* ------------------------------------------------------------- genealogy */
+function serialFor(site, line, n) {
+  const d = new Date(), jan1 = Date.UTC(d.getUTCFullYear(), 0, 1);
+  const doy = Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - jan1) / 86400000);
+  const wd = (d.getUTCDay() + 6) % 7;                     // Monday = 0, as strftime %W counts
+  const week = Math.floor((doy + 7 - wd) / 7);
+  return `${site}-${line}-${String(d.getUTCFullYear() % 100).padStart(2, "0")}${String(week).padStart(2, "0")}-${String(n).padStart(6, "0")}`;
+}
+async function lookup(serial) {
+  const host = $("part");
+  serial = serial.trim();
+  if (!serial) return;
+  try {
+    const p = await getJson("/api/parts/" + encodeURIComponent(serial));
+    const t = p.firstTest, m = t.measurements, lot = p.lot;
+    host.replaceChildren(el("div", { class: "two" },
+      el("div", { class: "card" }, el("div", { class: "row" }, el("div", { class: "lineid" }, p.serial), el("span", { class: "chip " + (t.passed ? "ok" : "alarm") }, t.result)),
+        el("div", { class: "note", style: "margin:4px 0 10px" }, `${p.site}/${p.line} · ${p.programId} · tested ${new Date(t.tsUtc).toLocaleString()} · ${p.attempts.length} attempt(s)${p.reworked ? " · reworked" : ""}`),
+        el("dl", { class: "kv" },
+          el("dt", {}, "Leak rate"), el("dd", {}, `${sci(m.leakRateMbarLs)} (limit ${sci(m.leakLimitMbarLs)}) mbar·l/s`),
+          el("dt", {}, "Flow"), el("dd", {}, `${fixed(m.flowLpm, 2)} l/min (target ${fixed(m.flowTargetLpm, 2)})`),
+          el("dt", {}, "Pressure"), el("dd", {}, `${fixed(m.pressureBar, 3)} bar`),
+          el("dt", {}, "Screw torque"), el("dd", {}, (m.torqueNm || []).map((x) => fixed(x, 2)).join(", ") + " Nm"),
+          el("dt", {}, "Leak fixture"), el("dd", {}, t.fixtureId), el("dt", {}, "Operator"), el("dd", {}, t.operatorId))),
+      lot ? el("div", { class: "card" }, el("div", { class: "site" }, "BUILT FROM HOUSING LOT"), el("div", { class: "lineid" }, lot.housingLotId),
+        el("dl", { class: "kv", style: "margin-top:8px" },
+          el("dt", {}, "Pumps from this lot"), el("dd", {}, `${lot.parts} (${lot.tested} tested)`),
+          el("dt", {}, "Lot pass rate"), el("dd", {}, pct(lot.passRate) + `  (${lot.passed}/${lot.tested})`)),
+        el("div", { class: "site", style: "margin-top:12px" }, "MACHINED WITH"),
+        ...(lot.tools || []).map((tool) => el("dl", { class: "kv", style: "margin-top:4px" },
+          el("dt", {}, "Tool"), el("dd", {}, `${tool.toolId} on ${tool.site}/${tool.line}`),
+          el("dt", {}, "Avg spindle load"), el("dd", {}, fixed(tool.avgSpindleLoadPct, 1) + "%"),
+          el("dt", {}, "Lowest tool life left"), el("dd", {}, fixed(tool.minToolLifePct, 1) + "%")))) : null));
+  } catch (e) {
+    host.replaceChildren(el("div", { class: "empty" }, "No part found for “" + serial + "”. Serials look like " + serialFor("IZM", "L01", 1) + "."));
+  }
+}
+function wireGenealogy() {
+  $("lookup").addEventListener("click", () => lookup($("serial").value));
+  $("serial").addEventListener("keydown", (e) => { if (e.key === "Enter") lookup($("serial").value); });
+  $("examples").replaceChildren(el("span", { class: "note" }, "try: "), ...[["IZM", "L01"], ["IZM", "L02"], ["NIS", "L11"]].map(([s, l]) =>
+    el("button", { onclick: () => { const v = serialFor(s, l, 5); $("serial").value = v; lookup(v); } }, `${s}/${l} #5`)));
+}
+
+/* ----------------------------------------------------------------- wiring */
+function setConn(ok, text) { $("dot").className = "dot " + (ok ? "live" : "bad"); $("conn").textContent = text; }
+async function refreshLines() {
+  try { renderCards(await getJson("/api/lines")); setConn(true, "live"); } catch (e) { setConn(false, "core unreachable"); }
+}
+let paretoTimer = null;
+const refreshPareto = () => { clearTimeout(paretoTimer); paretoTimer = setTimeout(() => loadPareto().catch(() => {}), 400); };
+function connectStream() {
+  const es = new EventSource("/api/events/stream");
+  es.addEventListener("kpiTick", (e) => { try { renderCards(JSON.parse(e.data)); setConn(true, "live"); } catch (_) {} });
+  es.addEventListener("downtime", refreshPareto);
+  es.onerror = () => setConn(false, "reconnecting…");
+}
+function init() {
+  $("plines").replaceChildren(el("option", { value: "ALL" }, "All lines"), ...LINES.map(([s, l]) => el("option", { value: s + "/" + l }, s + " / " + l)));
+  $("plines").addEventListener("change", () => loadPareto().catch(() => {}));
+  $("theme").addEventListener("click", () => {
+    const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.dataset.theme = cur === "dark" ? "light" : "dark";
+  });
+  wireGenealogy();
+  refreshLines(); loadPareto().catch(() => {}); loadFixtures().catch(() => {}); loadSites().catch(() => {});
+  connectStream();
+  setInterval(refreshLines, 5000);                      // fallback if the stream is down
+  setInterval(() => { loadPareto().catch(() => {}); loadFixtures().catch(() => {}); loadSites().catch(() => {}); }, 10000);
+}
+init();
+</script>
+</body>
+</html>
