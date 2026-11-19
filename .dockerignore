@@ -1,0 +1,11 @@
+.git
+.venv
+data
+**/bin
+**/obj
+**/node_modules
+tests
+docs
+tools
+*.md
+!requirements.txt

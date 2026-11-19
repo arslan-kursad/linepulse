@@ -1,0 +1,45 @@
+# Fly.io deployment for the live demo at linepulse.hanwas.digital.
+# The image is built remotely from deploy/Dockerfile; the laptop needs no Docker.
+
+app = "hanwas-linepulse"
+primary_region = "fra"
+
+[build]
+  dockerfile = "deploy/Dockerfile"
+
+[env]
+  LP_SPEED = "20"
+  Ingest__TimeScale = "20"
+  LP_MAX_UPTIME_HOURS = "12"
+  PORT = "8080"
+
+# Only the dashboard and its read-only API are reachable. NATS, the MQTT broker and the
+# OPC-UA server listen inside the machine and are never published.
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Runs only while someone is looking. The proxy starts the machine on the first request
+  # and stops it once no connection has been open for a few minutes, so an idle demo costs
+  # only its stopped disk. The core answers within seconds of a cold start (it is started
+  # first); the simulators need about a minute more before numbers appear.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    grace_period = "180s"
+    interval = "30s"
+    timeout = "5s"
+    method = "GET"
+    path = "/api/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+
+# start.sh exits non-zero when a component dies and relies on this to come back clean.
+# A machine the proxy stops for being idle is not restarted by this policy; the next
+# request starts it.
+[[restart]]
+  policy = "on-failure"
+  max_retries = 5

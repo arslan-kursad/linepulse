@@ -38,6 +38,33 @@ The plant being modelled: [docs/DOMAIN.md](docs/DOMAIN.md). Choices and their re
 [docs/DECISIONS.md](docs/DECISIONS.md). Kepware: [docs/KEPWARE.md](docs/KEPWARE.md).
 A ten-minute live walkthrough: [docs/DEMO.md](docs/DEMO.md).
 
+## Live demo
+
+**https://linepulse.hanwas.digital** runs the whole lab, simulators included, on one small Fly.io
+machine. Everything on the page is simulated.
+
+- **It sleeps.** The machine is stopped when nobody is looking and started by the first request, so an
+  idle demo costs almost nothing. Measured once: it stopped about nine and a half minutes after the last
+  request; the first request after that returned in 6.3 s, the page itself 0.4 s later, and the first
+  hundred and fifty events were in the database 16 s after the request. A tab left open keeps it awake.
+- **It forgets.** Every start is a clean lab: the data directory is wiped, and the machine also restarts
+  itself every twelve hours. A stopped machine's silence would otherwise be read as a line standing
+  still for an hour, which is wrong.
+- **What is exposed.** Only the dashboard and its read-only API. NATS, the MQTT broker and the OPC-UA
+  server listen inside the machine and are not published. The API has no authentication, and there is
+  nothing in it that is not simulated.
+- **What is not shown.** The verification scenarios, the documentation and the source are not part of
+  the deployed image.
+
+Deployment files: `fly.toml`, `deploy/Dockerfile`, `deploy/start.sh` (a small supervisor that starts the
+components in order and ends the machine if any of them dies, so the platform restarts it clean). The
+image is built by Fly's remote builder; Docker is not needed locally.
+
+```bash
+fly apps create <name>        # once; set `app` in fly.toml to match
+fly deploy --remote-only --ha=false
+```
+
 ## Quick start
 
 Needs .NET 8 SDK, Python 3.11+, Node is **not** needed, and `nats-server` (`brew install nats-server`).
@@ -153,6 +180,7 @@ modelling assumption, as [docs/DOMAIN.md](docs/DOMAIN.md) says.
 - The SQL Server schema (`db/mssql/schema.sql`) has **not been executed** and the SQL Server data
   provider is not written. The lab stores to SQLite behind the same interfaces.
 - The dashboard is one plain HTML file, not an Angular application.
+- The live demo has not been load tested and has no authentication; it is a showcase of simulated data, not a service.
 - A late **state change** revises the OEE minute buckets but not the list of downtime events: the
   downtime state machine refuses to move backwards and counts the refusal.
 - The OPC-UA endpoint, the MQTT broker and NATS have no authentication or encryption, and the
