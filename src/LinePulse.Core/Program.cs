@@ -75,6 +75,8 @@ var app = builder.Build();
 await app.Services.GetRequiredService<IEventStore>().InitializeAsync(CancellationToken.None);
 
 app.UseCors("dashboard-dev");
+// Before the default-files rewrite, so "/" is logged as the path the visitor asked for.
+app.UseVisitLog();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 

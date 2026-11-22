@@ -53,6 +53,10 @@ machine. Everything on the page is simulated.
 - **What is exposed.** Only the dashboard and its read-only API. NATS, the MQTT broker and the OPC-UA
   server listen inside the machine and are not published. The API has no authentication, and there is
   nothing in it that is not simulated.
+- **What is logged.** Each page load writes one line to the platform log: time, client IP, the edge
+  region that accepted the connection, the path, the referring site's host and the browser's user
+  agent. API calls and health checks are not logged. The platform keeps the log searchable for about
+  seven days; nothing is stored in the lab's database.
 - **What is not shown.** The verification scenarios, the documentation and the source are not part of
   the deployed image.
 

@@ -108,3 +108,15 @@ sampling interval, in a laboratory or on a real line.
 The configuration binder appends a configured array to a default one instead of replacing it.
 A default shift list plus the same list in `appsettings.json` became six entries and moved
 every shift label after the first onto the wrong shift. The values live in `appsettings.json`.
+
+## Live demo
+
+**Page loads are logged to stdout, nothing else is.**
+The owner of a demo sent to a reviewer wants to know whether it was opened. One line per page
+load (`visit region=... ip=... path=... ref=... ua=...`) answers that from the platform's log
+search, which keeps about seven days. Not the database, which every start wipes, and not a
+volume, which would pin the machine and cost money for a few lines a week. API polling and
+health checks are left out, or the handful of lines that matter would drown. The referrer is
+reduced to its host so a query string never reaches the log. An IP address says roughly where,
+not who: two visitors on the same mobile network in the same city look alike, and the time of
+the visit is usually the better clue.
